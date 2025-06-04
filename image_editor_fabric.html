@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Image Editor with Fabric.js</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #ff6b6b, #feca57);
+            padding: 20px;
+            text-align: center;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .controls {
+            padding: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #56ab2f, #a8e6cf);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ff416c, #ff4b2b);
+            color: white;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .editor-area {
+            padding: 30px;
+            display: flex;
+            justify-content: center;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .canvas-wrapper {
+            border: 3px solid #ddd;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            background: white;
+            padding: 10px;
+        }
+
+        #canvas {
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .status {
+            text-align: center;
+            padding: 15px;
+            font-size: 16px;
+            color: #666;
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        .status.success {
+            background: rgba(76, 175, 80, 0.1);
+            color: #4caf50;
+        }
+
+        .status.error {
+            background: rgba(244, 67, 54, 0.1);
+            color: #f44336;
+        }
+
+        .color-picker {
+            margin: 10px 0;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .color-picker label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .color-picker input[type="color"] {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn {
+                width: 200px;
+            }
+            
+            #canvas {
+                max-width: 100%;
+                height: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 Experiment with Images</h1>
+            <!-- <p>Upload, resize, and customize your images with text using Fabric.js</p> -->
+        </div>
+        
+        <div class="controls">
+            <input type="file" id="imageInput" accept="image/*" class="hidden">
+            <button class="btn btn-primary" onclick="document.getElementById('imageInput').click()">
+                📷 Add Image
+            </button>
+            <button class="btn btn-warning" onclick="addText()">
+                📝 Add Text
+            </button>
+            <button class="btn btn-primary" onclick="deleteSelected()">
+                🗑️ Delete Selected
+            </button>
+            <button class="btn btn-danger" onclick="clearCanvas()">
+                🗑️ Clear All
+            </button>
+            <button class="btn btn-success" onclick="saveToStorage()">
+                💾 Save Project
+            </button>
+ <!--            <button class="btn btn-primary" onclick="loadFromStorage()">
+                📂 Load Project
+            </button> -->
+        </div>
+
+        <div class="color-picker">
+            <label for="textColor">Text Color:</label>
+            <input type="color" id="textColor" value="#000000">
+            <label for="bgColor">Canvas Background:</label>
+            <input type="color" id="bgColor" value="#ffffff" onchange="changeCanvasBackground()">
+        </div>
+        
+        <div class="editor-area">
+            <div class="canvas-wrapper">
+                <canvas id="canvas" width="800" height="600"></canvas>
+            </div>
+        </div>
+        
+        <div class="status" id="status">Ready to create! Upload an image or add text to get started.</div>
+    </div>
+
+    <script>
+        // Initialize Fabric.js canvas
+        const canvas = new fabric.Canvas('canvas', {
+            backgroundColor: '#ffffff',
+            selection: true,
+            preserveObjectStacking: true
+        });
+
+        // Add grid pattern background
+        const gridSize = 20;
+        const grid = [];
+        
+        function createGrid() {
+            const canvasWidth = canvas.getWidth();
+            const canvasHeight = canvas.getHeight();
+            
+            // Vertical lines
+            for (let i = 0; i <= canvasWidth / gridSize; i++) {
+                const line = new fabric.Line([i * gridSize, 0, i * gridSize, canvasHeight], {
+                    stroke: '#f0f0f0',
+                    strokeWidth: 1,
+                    selectable: false,
+                    evented: false
+                });
+                grid.push(line);
+                canvas.add(line);
+            }
+            
+            // Horizontal lines
+            for (let i = 0; i <= canvasHeight / gridSize; i++) {
+                const line = new fabric.Line([0, i * gridSize, canvasWidth, i * gridSize], {
+                    stroke: '#f0f0f0',
+                    strokeWidth: 1,
+                    selectable: false,
+                    evented: false
+                });
+                grid.push(line);
+                canvas.add(line);
+            }
+            
+            canvas.sendToBack(...grid);
+        }
+
+        // Initialize grid
+        createGrid();
+
+        // File input handler
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    addImageToCanvas(e.target.result);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function addImageToCanvas(imageSrc) {
+            fabric.Image.fromURL(imageSrc, function(img) {
+                // Scale image to fit nicely on canvas
+                const maxWidth = 300;
+                const maxHeight = 300;
+                
+                if (img.width > maxWidth || img.height > maxHeight) {
+                    const scale = Math.min(maxWidth / img.width, maxHeight / img.height);
+                    img.scale(scale);
+                }
+                
+                // Position image
+                img.set({
+                    left: 50,
+                    top: 50,
+                    cornerStyle: 'circle',
+                    cornerColor: '#ff6b6b',
+                    cornerSize: 12,
+                    transparentCorners: false,
+                    borderColor: '#667eea',
+                    borderScaleFactor: 2
+                });
+                
+                canvas.add(img);
+                canvas.setActiveObject(img);
+                canvas.renderAll();
+                
+                showStatus('Image added successfully! Drag corners to resize.', 'success');
+            });
+        }
+
+        function addText() {
+            const text = prompt('Enter text:');
+            if (text && text.trim()) {
+                const textColor = document.getElementById('textColor').value;
+                const textObj = new fabric.Text(text, {
+                    left: 100,
+                    top: 100,
+                    fontFamily: 'Arial',
+                    fontSize: 24,
+                    fill: textColor,
+                    cornerStyle: 'circle',
+                    cornerColor: '#ff6b6b',
+                    cornerSize: 12,
+                    transparentCorners: false,
+                    borderColor: '#667eea',
+                    borderScaleFactor: 2
+                });
+                
+                canvas.add(textObj);
+                canvas.setActiveObject(textObj);
+                canvas.renderAll();
+                
+                showStatus('Text added successfully! Double-click to edit.', 'success');
+            }
+        }
+
+        function deleteSelected() {
+            const activeObject = canvas.getActiveObject();
+            if (activeObject && !grid.includes(activeObject)) {
+                canvas.remove(activeObject);
+                canvas.renderAll();
+                showStatus('Object deleted successfully!', 'success');
+            } else {
+                showStatus('Please select an object to delete.', 'error');
+            }
+        }
+
+        function clearCanvas() {
+            if (confirm('Are you sure you want to clear all content?')) {
+                const objects = canvas.getObjects();
+                objects.forEach(obj => {
+                    if (!grid.includes(obj)) {
+                        canvas.remove(obj);
+                    }
+                });
+                canvas.renderAll();
+                showStatus('Canvas cleared successfully!', 'success');
+            }
+        }
+
+        function changeCanvasBackground() {
+            const bgColor = document.getElementById('bgColor').value;
+            canvas.setBackgroundColor(bgColor, canvas.renderAll.bind(canvas));
+            showStatus('Background color changed!', 'success');
+        }
+
+        function saveToStorage() {
+            // try {
+            //     const canvasData = JSON.stringify(canvas.toJSON(['selectable', 'evented']));
+            //     window.savedProject = canvasData;
+            //     showStatus('Project saved successfully!', 'success');
+            // } catch (error) {
+            //     showStatus('Error saving project: ' + error.message, 'error');
+            // }
+            const dataURL = canvas.toDataURL({ format: 'png' }); // or 'jpeg'
+            const link = document.createElement('a');
+            link.href = dataURL;
+            link.download = 'my-canvas.png';
+            link.click();
+        }
+
+        function loadFromStorage() {
+            if (window.savedProject) {
+                try {
+                    canvas.loadFromJSON(window.savedProject, function() {
+                        canvas.renderAll();
+                        // Recreate grid after loading
+                        createGrid();
+                        showStatus('Project loaded successfully!', 'success');
+                    });
+                } catch (error) {
+                    showStatus('Error loading project: ' + error.message, 'error');
+                }
+            } else {
+                showStatus('No saved project found.', 'error');
+            }
+        }
+
+        function showStatus(message, type = '') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status ' + type;
+            
+            setTimeout(() => {
+                status.textContent = 'Ready to create! Upload an image or add text to get started.';
+                status.className = 'status';
+            }, 4000);
+        }
+
+        // Enable text editing on double-click
+        canvas.on('text:editing:entered', function() {
+            showStatus('Editing text... Click outside to finish.', 'success');
+        });
+
+        canvas.on('text:editing:exited', function() {
+            showStatus('Text editing completed!', 'success');
+        });
+
+        // Object selection feedback
+        canvas.on('selection:created', function(e) {
+            if (!grid.includes(e.selected[0])) {
+                showStatus('Object selected. Use corner handles to resize, drag to move.', 'success');
+            }
+        });
+
+        // Drag and drop functionality
+        canvas.getElement().addEventListener('dragover', function(e) {
+            e.preventDefault();
+        });
+
+        canvas.getElement().addEventListener('drop', function(e) {
+            e.preventDefault();
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    addImageToCanvas(e.target.result);
+                };
+                reader.readAsDataURL(files[0]);
+            }
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                deleteSelected();
+            }
+        });
+
+        // Initial status
+        showStatus('Canvas ready! Drag and drop images or use the buttons above.', 'success');
+    </script>
+</body>
+</html>
